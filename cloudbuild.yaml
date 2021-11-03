@@ -1,0 +1,38 @@
+steps:
+  - name: "gcr.io/cloud-builders/yarn"
+    args: ["install"]
+    dir: "./"
+
+  - name: "gcr.io/cloud-builders/yarn"
+    args: ["test"]
+    dir: "./"
+
+  - name: "gcr.io/cloud-builders/yarn"
+    args: ["build"]
+    dir: "./"
+
+  - name: gcr.io/cloud-builders/gcloud
+    args:
+      - '-c'
+      - |-
+        case $TAG_NAME in
+          ${_ENV_PREFIX}-pubsub-redirect-v*)
+            gcloud functions deploy ${_ENV_PREFIX}-send-message-to-pubsub \
+            --trigger-http --allow-unauthenticated --runtime nodejs14 \
+            --entry-point http.simple.helloWorldHttp \
+            --set-env-vars \
+            GCP_PROJECT_ID=${PROJECT_ID},\
+            GCP_PUBSUB_TOPIC_CLIENT_MESSAGES=${_GCP_PS_TOPIC}
+          ;;
+          ${_ENV_PREFIX}-${_GCP_PS_TOPIC}-v*)
+            gcloud functions deploy ${_ENV_PREFIX}-${_GCP_PS_TOPIC} \
+            --trigger-topic ${_GCP_PS_TOPIC} --runtime nodejs14 \
+            --entry-point pubsub.simple.helloWorldPubSub
+        ;;
+        esac
+    dir: ./
+    entrypoint: bash
+
+substitutions:
+  _GCP_PS_TOPIC: my-example-topic ## replace this
+  _ENV_PREFIX: dev ## replace this for another environments
